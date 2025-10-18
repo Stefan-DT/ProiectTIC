@@ -1,0 +1,287 @@
+Dezvoltarea unei Aplicații Single Page cu Operații CRUD pentru Obiecte Relaționate
+Obiective și Contextul Proiectului
+Dezvoltarea unei aplicații web care să demonstreze înțelegerea arhitecturii full-stack, managementului stării, modelarea datelor și securitatea aplicațiilor web.
+
+Cerințe de dezvoltare
+Proiectul necesită o dezvoltare graduală, documentată prin commit-uri regulate pe GitHub. Fiecare etapă trebuie să reprezinte un increment logic în dezvoltarea aplicației.
+
+Etape obligatorii de dezvoltare (Commit-uri)
+Inițializare proiect Express
+
+Configurarea structurii de bază a aplicației Express.
+
+Implementarea middleware-urilor esențiale.
+
+Configurarea variabilelor de mediu și a sistemului de logging.
+
+Inițializare proiect Vue
+
+Configurarea proiectului Vue 3 cu Composition API sau abordarea implicită.
+
+Configurarea router-ului și a gestionării stării cu Vuex.
+
+Crearea structurii de bază a componentelor.
+
+Configurare și conectare Firestore
+
+Inițializarea Firebase în proiect.
+
+Configurarea regulilor de securitate în Firestore.
+
+Implementarea serviciului de conexiune la baza de date.
+
+Implementare rute și componente principale 
+
+Definirea rutelor API în Express.
+
+Crearea componentelor Vue reutilizabile.
+
+Implementarea unui layout responsive.
+
+Script generare date
+
+
+Copy
+// Exemplu script generare date
+const faker = require('@faker-js/faker');
+
+async function generateProducts(count = 50) {
+  const products = [];
+  for (let i = 0; i < count; i++) {
+    products.push({
+      name: faker.commerce.productName(),
+      price: faker.commerce.price(),
+      description: faker.commerce.productDescription(),
+      category: {
+        id: faker.string.uuid(),
+        name: faker.commerce.department(),
+        features: Array(3).fill().map(() => faker.commerce.productAdjective())
+      },
+      stock: {
+        quantity: faker.number.int({ min: 0, max: 100 }),
+        warehouse: faker.location.city()
+      }
+    });
+  }
+  return products;
+}
+Implementare autentificare
+
+Integrarea Firebase Authentication, JWT, session sau similar.
+
+Implementarea middleware-ului de autentificare în API.
+
+Crearea componentelor UI pentru autentificare.
+
+Operații CRUD backend + DB
+
+Implementarea controllerelor pentru fiecare entitate.
+
+Validarea datelor înainte de salvare.
+
+Gestionarea erorilor și codurilor de răspuns HTTP.
+
+Operații CRUD frontend
+
+Crearea formularelor pentru operațiile Create și Update.
+
+Implementarea componentelor pentru listare și ștergere.
+
+Gestionarea stării aplicației cu Vuex.
+
+Implementare validări date
+
+Validări pe partea de client (frontend).
+
+Validări pe partea de server (backend).
+
+Feedback vizual către utilizator în cazul erorilor (opțional)
+
+Finalizare și optimizări (opțional)
+
+Optimizări de performanță.
+
+Testare end-to-end.
+
+Scrierea documentației și a instrucțiunilor de utilizare.
+
+Specificații tehnice detaliate
+Firebase Firestore - Modelare Date
+Abordare NoSQL (recomandată)
+
+
+Copy
+// Colecția: products
+{
+  "productId": "prod_123",
+  "name": "Gaming Laptop X9000",
+  "slug": "gaming-laptop-x9000",
+  "price": 3999.99,
+  "category": {
+    "id": "cat_456",
+    "name": "Electronics",
+    "features": ["gaming", "portable"]
+  },
+  "specifications": {
+    "cpu": "Intel i7-12700H",
+    "ram": "32GB DDR5",
+    "storage": "1TB NVMe SSD",
+    "gpu": "RTX 3080"
+  },
+  "inventory": {
+    "total": 15,
+    "locations": [
+      { "warehouse": "Central", "quantity": 10 },
+      { "warehouse": "North", "quantity": 5 }
+    ]
+  },
+  "metadata": {
+    "createdAt": "2024-03-19T12:00:00Z",
+    "updatedAt": "2024-03-19T12:00:00Z",
+    "createdBy": "user_789"
+  }
+}
+
+// Colecția: orders
+{
+  "orderId": "ord_123",
+  "userId": "user_789",
+  "products": [
+    {
+      "productId": "prod_123",
+      "quantity": 1,
+      "priceAtPurchase": 3999.99,
+      "productSnapshot": {
+        "name": "Gaming Laptop X9000",
+        "specifications": {
+          "cpu": "Intel i7-12700H",
+          "ram": "32GB DDR5"
+        }
+      }
+    }
+  ],
+  "status": "processing",
+  "shipping": {
+    "address": "Strada Principală 123",
+    "city": "Tech City",
+    "tracking": "track_123"
+  },
+  "timestamps": {
+    "ordered": "2024-03-19T12:00:00Z",
+    "updated": "2024-03-19T12:00:00Z"
+  }
+}
+Abordare SQL (nerecomandată pentru Firestore)
+
+
+Copy
+// Colecția: products
+{
+  "id": "prod_123",
+  "name": "Gaming Laptop X9000",
+  "price": 3999.99,
+  "categoryId": "cat_456",
+  "createdAt": "2024-03-19T12:00:00Z"
+}
+
+// Colecția: categories
+{
+  "id": "cat_456",
+  "name": "Electronics",
+  "parentCategoryId": null
+}
+
+// Colecția: product_specifications
+{
+  "id": "spec_789",
+  "productId": "prod_123",
+  "key": "cpu",
+  "value": "Intel i7-12700H"
+}
+
+// Colecția: inventory_locations
+{
+  "id": "inv_012",
+  "productId": "prod_123",
+  "warehouseId": "wh_345",
+  "quantity": 10
+}
+Exemple de interogări NoSQL vs SQL
+NoSQL (Recomandat)
+
+
+Copy
+// Obținerea unui produs cu toate detaliile într-o singură interogare
+const productRef = db.collection('products').doc('prod_123');
+const product = await productRef.get();
+
+// Actualizarea stocului într-o locație specifică
+await productRef.update({
+  'inventory.locations': firebase.firestore.FieldValue.arrayRemove({
+    warehouse: 'Central',
+    quantity: 10
+  })
+});
+SQL (Nerecomandat)
+
+
+Copy
+// Necesită multiple interogări pentru a obține toate detaliile
+const productRef = await db.collection('products').doc('prod_123').get();
+const categoryRef = await db.collection('categories')
+  .doc(productRef.data().categoryId).get();
+const specsRef = await db.collection('product_specifications')
+  .where('productId', '==', 'prod_123').get();
+Evaluare (50 de puncte)
+Criterii de bază:
+Arhitectură și implementare corectă: 25 puncte
+
+Modelarea datelor în Firestore (NoSQL): 10 puncte
+
+UI/UX și responsivitate: 5 puncte
+
+Securitate și autentificare: 10 puncte
+
+Penalizări:
+Dezvoltare în mai puțin de 3 zile: Descalificare
+
+Arhitectură incorectă între front-end și API: -25 puncte
+
+Neutilizarea Firebase sau Vue 3: -25 puncte
+
+Layout neîngrijit: -10 puncte
+
+Modelarea datelor în mod SQL în Firestore: -10 puncte
+
+Lipsa autentificării pentru operațiile care modifică datele: -10 puncte
+
+Validări insuficiente ale datelor: -5 puncte
+
+Lipsa responsivității interfeței: -5 puncte
+
+Puncte bonus (maxim +25 de puncte):
+Deployment complet (frontend + backend + DB): +10 puncte
+
+Implementarea unei sortări avansate (multiple criterii): +5 puncte
+
+Paginare cu infinite scroll: +5 puncte
+
+Upload de fișiere în Firebase Storage: +5 puncte
+
+Actualizări în timp real cu Firestore listeners: +5 puncte
+
+Cerințe pentru promovare
+Obținerea a minimum 25 de puncte din 50 posibile.
+
+Prezentare live obligatorie în cadrul unui interviu.
+
+Istoric GitHub valid care să acopere cel puțin 3 zile.
+
+Funcționalitate completă și demonstrabilă a aplicației.
+
+Observații finale
+Se va verifica istoricul de dezvoltare în GitHub.
+
+Codul duplicat sau plagiat va duce la descalificare.
+
+Proiectele incomplete nu vor fi evaluate.
