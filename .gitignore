@@ -55,6 +55,11 @@ tmp/
 temp/
 *.tmp
 
+# Firebase Service Account Keys
+serviceAccount.json
+serviceAccountKey.json
+**/serviceAccount*.json
+
 # Package manager locks (optional - uncomment if you want to ignore)
 # package-lock.json
 # yarn.lock
