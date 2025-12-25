@@ -1,6 +1,5 @@
 const db = require('../config/firebase');
 
-// GET /api/products
 const getAllProducts = async (req, res, next) => {
   try {
     const snapshot = await db.collection('products').get();
@@ -16,7 +15,6 @@ const getAllProducts = async (req, res, next) => {
   }
 };
 
-// GET /api/products/:id
 const getProductById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -37,12 +35,9 @@ const getProductById = async (req, res, next) => {
   }
 };
 
-// POST /api/products
 const createProduct = async (req, res, next) => {
   try {
     const { name, price, type, category } = req.body;
-
-    // validare simplă
     if (!name || !price || !type) {
       return res.status(400).json({
         message: 'name, price și type sunt obligatorii'
@@ -71,7 +66,6 @@ const createProduct = async (req, res, next) => {
   }
 };
 
-// PUT /api/products/:id
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -95,7 +89,6 @@ const updateProduct = async (req, res, next) => {
   }
 };
 
-// DELETE /api/products/:id
 const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
