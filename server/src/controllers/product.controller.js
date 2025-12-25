@@ -1,4 +1,4 @@
-const db = require('../config/firebase');
+const db = require('../../config/firebase');
 
 const getAllProducts = async (req, res, next) => {
   try {
