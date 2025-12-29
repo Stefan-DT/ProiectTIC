@@ -1,21 +1,24 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
+import { RouterLink, RouterView } from 'vue-router';
+import { useUserStore } from './stores/user';
+import { storeToRefs } from 'pinia';
+
+const userStore = useUserStore();
+const { user } = storeToRefs(userStore);
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
+  <nav>
+    <RouterLink to="/">Produse</RouterLink>
+    <RouterLink to="/login">Login</RouterLink>
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
-    </div>
-  </header>
+    <RouterLink
+      v-if="user?.role === 'admin'"
+      to="/admin"
+    >
+      Admin
+    </RouterLink>
+  </nav>
 
   <RouterView />
 </template>
