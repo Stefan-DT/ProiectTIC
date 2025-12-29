@@ -2,36 +2,63 @@
   <div>
     <h1>Produse</h1>
 
-    <p v-if="loading">Se încarcă produsele...</p>
-    <p v-if="error">{{ error }}</p>
-
-    <ul v-if="products.length">
+    <ul>
       <li v-for="product in products" :key="product.id">
-        <strong>{{ product.name }}</strong> – {{ product.price }} lei
+        {{ product.name }} – {{ product.price }} lei
+        <button
+          v-if="user"
+          @click="orderProduct(product)"
+        >
+          Cumpără
+        </button>
       </li>
     </ul>
-
-    <p v-if="!products.length && !loading">
-      Nu există produse.
-    </p>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getProducts } from '../services/api';
+import { getProducts, createOrder } from '../services/api';
+import { auth } from '../services/firebase';
+import { useUserStore } from '../stores/user';
+import { storeToRefs } from 'pinia';
 
 const products = ref([]);
-const loading = ref(true);
-const error = ref(null);
+const userStore = useUserStore();
+const { user } = storeToRefs(userStore);
 
-onMounted(async () => {
+const loadProducts = async () => {
+  products.value = await getProducts();
+};
+
+const orderProduct = async (product) => {
   try {
-    products.value = await getProducts();
-  } catch (err) {
-    error.value = err.message;
-  } finally {
-    loading.value = false;
+    if (!auth.currentUser) {
+      alert('Trebuie să fii logat pentru a plasa o comandă');
+      return;
+    }
+
+    const token = await auth.currentUser.getIdToken();
+
+    await createOrder(
+      {
+        products: [
+          {
+            productId: product.id,
+            name: product.name,
+            priceAtPurchase: product.price,
+            quantity: 1
+          }
+        ]
+      },
+      token
+    );
+
+    alert('Comandă plasată!');
+  } catch (error) {
+    alert('Eroare la plasarea comenzii');
   }
-});
+};
+
+onMounted(loadProducts);
 </script>
