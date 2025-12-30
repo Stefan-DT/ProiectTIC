@@ -15,7 +15,7 @@ const syncUser = async (req, res, next) => {
       });
     }
 
-    res.status(200).json({ message: 'User sincronizat' });
+    res.status(200).json({ message: 'User synchronized' });
   } catch (error) {
     next(error);
   }

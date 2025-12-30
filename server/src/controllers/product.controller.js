@@ -1,4 +1,4 @@
-const db = require('../../config/firebase');
+const { db } = require('../../config/firebase');
 
 const getAllProducts = async (req, res, next) => {
   try {
@@ -23,7 +23,7 @@ const getProductById = async (req, res, next) => {
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      return res.status(404).json({ message: 'Produs inexistent' });
+      return res.status(404).json({ message: 'Product not found' });
     }
 
     res.status(200).json({
@@ -37,10 +37,10 @@ const getProductById = async (req, res, next) => {
 
 const createProduct = async (req, res, next) => {
   try {
-    const { name, price, type, category } = req.body;
+    const { name, price, type, category, imageUrl } = req.body;
     if (!name || !price || !type) {
       return res.status(400).json({
-        message: 'name, price și type sunt obligatorii'
+        message: 'name, price and type are required'
       });
     }
 
@@ -48,6 +48,7 @@ const createProduct = async (req, res, next) => {
       name,
       price,
       type,
+      imageUrl: imageUrl || null,
       category: category || { id: 'cat_general', name: 'General' },
       metadata: {
         createdAt: new Date().toISOString(),
@@ -75,7 +76,7 @@ const updateProduct = async (req, res, next) => {
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      return res.status(404).json({ message: 'Produs inexistent' });
+      return res.status(404).json({ message: 'Product not found' });
     }
 
     await docRef.update({
@@ -83,7 +84,7 @@ const updateProduct = async (req, res, next) => {
       'metadata.updatedAt': new Date().toISOString()
     });
 
-    res.status(200).json({ message: 'Produs actualizat cu succes' });
+    res.status(200).json({ message: 'Product updated successfully' });
   } catch (error) {
     next(error);
   }
@@ -97,12 +98,12 @@ const deleteProduct = async (req, res, next) => {
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      return res.status(404).json({ message: 'Produs inexistent' });
+      return res.status(404).json({ message: 'Product not found' });
     }
 
     await docRef.delete();
 
-    res.status(200).json({ message: 'Produs șters cu succes' });
+    res.status(200).json({ message: 'Product deleted successfully' });
   } catch (error) {
     next(error);
   }

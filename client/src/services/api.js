@@ -4,7 +4,7 @@ export const getProducts = async () => {
   const response = await fetch(`${API_BASE_URL}/products`);
 
   if (!response.ok) {
-    throw new Error('Eroare la obținerea produselor');
+    throw new Error('Error fetching products');
   }
 
   return response.json();
@@ -18,7 +18,7 @@ export const getCurrentUser = async (token) => {
   });
 
   if (!response.ok) {
-    throw new Error('Nu se poate obține userul');
+    throw new Error('Could not get user');
   }
 
   return response.json();
@@ -35,7 +35,7 @@ export const createProduct = async (product, token) => {
   });
 
   if (!response.ok) {
-    throw new Error('Eroare la creare produs');
+    throw new Error('Error creating product');
   }
 
   return response.json();
@@ -50,7 +50,7 @@ export const deleteProduct = async (id, token) => {
   });
 
   if (!response.ok) {
-    throw new Error('Eroare la ștergere produs');
+    throw new Error('Error deleting product');
   }
 };
 
@@ -65,7 +65,7 @@ export const createOrder = async (orderData, token) => {
   });
 
   if (!response.ok) {
-    throw new Error('Eroare la creare comandă');
+    throw new Error('Error creating order');
   }
 
   return response.json();
@@ -79,7 +79,7 @@ export const getOrders = async (token) => {
   });
 
   if (!response.ok) {
-    throw new Error('Eroare la obținerea comenzilor');
+    throw new Error('Error fetching orders');
   }
 
   return response.json();

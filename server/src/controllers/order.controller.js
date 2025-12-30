@@ -1,12 +1,12 @@
-const db = require('../../config/firebase');
+const { db } = require('../../config/firebase');
 
-// USER - creare comandă
+// USER - create order
 const createOrder = async (req, res, next) => {
   try {
     const { products } = req.body;
 
     if (!products || !products.length) {
-      return res.status(400).json({ message: 'Comanda este goală' });
+      return res.status(400).json({ message: 'Order is empty' });
     }
 
     const order = {
@@ -27,7 +27,7 @@ const createOrder = async (req, res, next) => {
   }
 };
 
-// ADMIN - listare comenzi
+// ADMIN - list orders
 const getAllOrders = async (req, res, next) => {
   try {
     const snapshot = await db.collection('orders').get();

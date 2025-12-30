@@ -8,81 +8,111 @@ const { user } = storeToRefs(userStore);
 </script>
 
 <template>
-  <nav>
-    <RouterLink to="/">Produse</RouterLink>
-    <RouterLink to="/login">Login</RouterLink>
-
-    <RouterLink
-      v-if="user?.role === 'admin'"
-      to="/admin"
-    >
-      Admin
-    </RouterLink>
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <RouterLink to="/">Game Store</RouterLink>
+      </div>
+      <div class="nav-links">
+        <RouterLink to="/">Products</RouterLink>
+        <RouterLink v-if="!user" to="/login">Login</RouterLink>
+        <RouterLink
+          v-if="user?.role === 'admin'"
+          to="/admin"
+          class="admin-link"
+        >
+          Admin
+        </RouterLink>
+        <span v-if="user" class="user-badge">{{ user.email }}</span>
+      </div>
+    </div>
   </nav>
 
-  <RouterView />
+  <main class="main-content">
+    <RouterView />
+  </main>
 </template>
 
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
+.navbar {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
 }
 
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-nav {
-  width: 100%;
-  font-size: 12px;
-  text-align: center;
-  margin-top: 2rem;
+.nav-brand a {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.2s;
 }
 
-nav a.router-link-exact-active {
-  color: var(--color-text);
+.nav-brand a:hover {
+  color: var(--primary-dark);
 }
 
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
+.nav-links a {
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
 }
 
-nav a:first-of-type {
-  border: 0;
+.nav-links a:hover {
+  background: var(--bg);
+  color: var(--primary);
 }
 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
+.nav-links a.router-link-exact-active {
+  background: var(--primary);
+  color: white;
+}
 
-  .logo {
-    margin: 0 2rem 0 0;
-  }
+.admin-link {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);
+  font-weight: 600;
+}
 
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+.admin-link:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+  box-shadow: 0 6px 8px -1px rgba(139, 92, 246, 0.4);
+  transform: translateY(-1px);
+}
 
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
+.user-badge {
+  padding: 0.5rem 1rem;
+  background: var(--bg);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
 
-    padding: 1rem 0;
-    margin-top: 1rem;
-  }
+.main-content {
+  flex: 1;
+  padding: 2rem 0;
 }
 </style>
