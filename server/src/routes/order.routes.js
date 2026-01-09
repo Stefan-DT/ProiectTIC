@@ -6,13 +6,17 @@ const adminOnly = require('../middlewares/admin.middleware');
 
 const {
   createOrder,
-  getAllOrders
+  getAllOrders,
+  getUserOrders
 } = require('../controllers/order.controller');
 
-// user
+// user - create order
 router.post('/', authMiddleware, createOrder);
 
-// admin
+// user - own orders
+router.get('/my', authMiddleware, getUserOrders);
+
+// admin - all orders
 router.get('/', authMiddleware, adminOnly, getAllOrders);
 
 module.exports = router;

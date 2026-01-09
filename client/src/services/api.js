@@ -84,3 +84,17 @@ export const getOrders = async (token) => {
 
   return response.json();
 };
+
+export const getMyOrders = async (token) => {
+  const response = await fetch(`${API_BASE_URL}/orders/my`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Error fetching user orders');
+  }
+
+  return response.json();
+};

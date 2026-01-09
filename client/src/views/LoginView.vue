@@ -40,6 +40,11 @@
             {{ loading ? 'Connecting...' : 'Login' }}
           </button>
         </form>
+        <p>
+                Not registered yet?
+          <router-link to="/register">Create account</router-link>
+        </p>
+
       </div>
     </div>
   </div>

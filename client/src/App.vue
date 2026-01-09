@@ -1,10 +1,24 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router';
+import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { useUserStore } from './stores/user';
 import { storeToRefs } from 'pinia';
+import { auth } from './services/firebase';
 
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
+
+const router = useRouter();
+
+const logout = async () => {
+  try {
+    await auth.signOut();
+  } catch (error) {
+    console.error('Error signing out:', error);
+  } finally {
+    userStore.clearUser();
+    router.push('/');
+  }
+};
 </script>
 
 <template>
@@ -23,7 +37,17 @@ const { user } = storeToRefs(userStore);
         >
           Admin
         </RouterLink>
-        <span v-if="user" class="user-badge">{{ user.email }}</span>
+        <div v-if="user" class="user-area">
+          <RouterLink
+            to="/profile"
+            class="user-badge user-link"
+          >
+            {{ user.email }}
+          </RouterLink>
+          <button class="logout-btn" @click="logout">
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   </nav>
@@ -109,6 +133,39 @@ const { user } = storeToRefs(userStore);
   border-radius: 0.5rem;
   font-size: 0.875rem;
   color: var(--text-light);
+}
+
+.user-link {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-link:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.user-area {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logout-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .main-content {

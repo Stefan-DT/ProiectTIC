@@ -34,12 +34,37 @@
                 />
               </div>
               <div class="form-group">
+                <label>Quantity</label>
+                <input
+                  v-model.number="quantity"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="10"
+                  required
+                />
+              </div>
+              <div class="form-group">
                 <label>Type</label>
                 <select v-model="type">
                   <option value="game">Game</option>
                   <option value="peripheral">Peripheral</option>
                 </select>
               </div>
+            </div>
+            <div
+              v-if="type === 'game'"
+              class="form-group"
+            >
+              <label>Activation Codes (one per line)</label>
+              <textarea
+                v-model="codesText"
+                rows="4"
+                placeholder="CODE-1234-ABCD&#10;CODE-5678-EFGH"
+              />
+              <small class="help-text">
+                You must provide at least as many codes as the quantity set above.
+              </small>
             </div>
             <div class="form-group">
               <label>Product Image</label>
@@ -76,6 +101,9 @@
                 <div class="product-details">
                   <div class="product-name">{{ product.name }}</div>
                   <div class="product-price">{{ product.price }} RON</div>
+                  <div v-if="product.stock?.total !== undefined" class="product-stock">
+                    In stock: {{ product.stock.total }}
+                  </div>
                 </div>
               </div>
               <button
@@ -105,9 +133,6 @@
           >
             <div class="order-header">
               <div class="order-id">#{{ order.id.slice(0, 8) }}</div>
-              <span class="status-badge" :class="order.status">
-                {{ order.status }}
-              </span>
             </div>
             <div class="order-details">
               <div class="order-info">
@@ -143,6 +168,8 @@ const orders = ref([]);
 const name = ref('');
 const price = ref('');
 const type = ref('game');
+const quantity = ref(0);
+const codesText = ref('');
 const uploading = ref(false);
 const selectedImage = ref(null);
 const imagePreview = ref(null);
@@ -231,6 +258,26 @@ const addProduct = async () => {
     uploading.value = true;
     const token = await auth.currentUser.getIdToken();
 
+    if (quantity.value < 0) {
+      alert('Quantity cannot be negative');
+      uploading.value = false;
+      return;
+    }
+
+    let activationCodes = [];
+    if (type.value === 'game') {
+      activationCodes = codesText.value
+        .split('\n')
+        .map(code => code.trim())
+        .filter(Boolean);
+
+      if (activationCodes.length < quantity.value) {
+        alert('You must provide at least as many activation codes as the quantity.');
+        uploading.value = false;
+        return;
+      }
+    }
+
     let imageUrl = null;
     if (selectedImage.value) {
       imageUrl = await uploadImage(selectedImage.value);
@@ -241,7 +288,11 @@ const addProduct = async () => {
         name: name.value,
         price: price.value,
         type: type.value,
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
+        stock: {
+          total: quantity.value
+        },
+        activationCodes
       },
       token
     );
@@ -249,6 +300,8 @@ const addProduct = async () => {
     name.value = '';
     price.value = '';
     type.value = 'game';
+    quantity.value = 0;
+    codesText.value = '';
     clearImage();
 
     await loadProducts();
@@ -290,14 +343,20 @@ onMounted(() => {
 }
 
 .admin-header h1 {
-  font-size: 2.5rem;
-  color: var(--text);
-  margin-bottom: 0.5rem;
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+  text-shadow: 0 18px 45px rgba(15, 23, 42, 0.6);
 }
 
 .admin-subtitle {
-  color: var(--text-light);
-  font-size: 1rem;
+  color: rgba(241, 245, 249, 0.9);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .admin-sections {

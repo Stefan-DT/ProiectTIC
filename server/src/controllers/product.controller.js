@@ -37,7 +37,15 @@ const getProductById = async (req, res, next) => {
 
 const createProduct = async (req, res, next) => {
   try {
-    const { name, price, type, category, imageUrl } = req.body;
+    const {
+      name,
+      price,
+      type,
+      category,
+      imageUrl,
+      stock,
+      activationCodes
+    } = req.body;
     if (!name || !price || !type) {
       return res.status(400).json({
         message: 'name, price and type are required'
@@ -50,6 +58,8 @@ const createProduct = async (req, res, next) => {
       type,
       imageUrl: imageUrl || null,
       category: category || { id: 'cat_general', name: 'General' },
+      stock: stock || { total: 0 },
+      activationCodes: type === 'game' ? activationCodes || [] : [],
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
