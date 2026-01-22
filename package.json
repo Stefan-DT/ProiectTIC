@@ -1,0 +1,10 @@
+{
+  "name": "proiecttic",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm ci --prefix server || npm install --prefix server",
+    "start": "npm --prefix server start",
+    "dev": "npm --prefix server run dev"
+  }
+}
+
