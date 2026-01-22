@@ -11,6 +11,19 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
+// Root + health endpoints (useful for hosting checks / opening backend URL in browser)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'Game Store API',
+    endpoints: ['/api/test', '/api/products', '/api/auth/me', '/api/orders']
+  });
+});
+
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ status: 'OK' });
+});
+
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
