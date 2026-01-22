@@ -12,8 +12,8 @@
         </div>
 
         <div class="add-product-card">
-          <h3>Add New Product</h3>
-          <form @submit.prevent="addProduct" class="product-form">
+          <h3>{{ editingId ? 'Edit Product' : 'Add New Product' }}</h3>
+          <form @submit.prevent="submitProduct" class="product-form">
             <div class="form-row">
               <div class="form-group">
                 <label>Product Name</label>
@@ -44,18 +44,8 @@
                   required
                 />
               </div>
-              <div class="form-group">
-                <label>Type</label>
-                <select v-model="type">
-                  <option value="game">Game</option>
-                  <option value="peripheral">Peripheral</option>
-                </select>
-              </div>
             </div>
-            <div
-              v-if="type === 'game'"
-              class="form-group"
-            >
+            <div class="form-group">
               <label>Activation Codes (one per line)</label>
               <textarea
                 v-model="codesText"
@@ -79,9 +69,24 @@
                 <button type="button" @click="clearImage" class="btn btn-danger btn-sm">Remove image</button>
               </div>
             </div>
-            <button type="submit" class="btn btn-primary" :disabled="uploading">
-              {{ uploading ? 'Uploading...' : 'Add Product' }}
-            </button>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" :disabled="uploading">
+                {{
+                  uploading
+                    ? 'Uploading...'
+                    : (editingId ? 'Update Product' : 'Add Product')
+                }}
+              </button>
+              <button
+                v-if="editingId"
+                type="button"
+                class="btn btn-secondary"
+                :disabled="uploading"
+                @click="cancelEdit"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
 
@@ -106,12 +111,22 @@
                   </div>
                 </div>
               </div>
-              <button
-                @click="removeProduct(product.id)"
-                class="btn btn-danger btn-sm"
-              >
-                Delete
-              </button>
+              <div class="product-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  @click="startEdit(product)"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  @click="removeProduct(product.id)"
+                  class="btn btn-danger btn-sm"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -159,15 +174,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getProducts, createProduct, deleteProduct, getOrders } from '../services/api';
+import { getProducts, createProduct, updateProduct, deleteProduct, getOrders } from '../services/api';
 import { auth, storage } from '../services/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const products = ref([]);
 const orders = ref([]);
+const editingId = ref(null);
 const name = ref('');
 const price = ref('');
-const type = ref('game');
 const quantity = ref(0);
 const codesText = ref('');
 const uploading = ref(false);
@@ -253,7 +268,40 @@ const uploadImage = async (file) => {
   }
 };
 
-const addProduct = async () => {
+const resetForm = () => {
+  editingId.value = null;
+  name.value = '';
+  price.value = '';
+  type.value = 'game';
+  quantity.value = 0;
+  codesText.value = '';
+  clearImage();
+};
+
+const startEdit = (product) => {
+  editingId.value = product.id;
+  name.value = product.name ?? '';
+  price.value = product.price ?? '';
+  quantity.value = product.stock?.total ?? 0;
+
+  const codes = Array.isArray(product.activationCodes)
+    ? product.activationCodes
+    : [];
+  codesText.value = codes.join('\n');
+
+  // show existing image (optional); user can upload a new one to replace
+  imagePreview.value = product.imageUrl || null;
+  selectedImage.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+};
+
+const cancelEdit = () => {
+  resetForm();
+};
+
+const submitProduct = async () => {
   try {
     uploading.value = true;
     const token = await auth.currentUser.getIdToken();
@@ -264,50 +312,49 @@ const addProduct = async () => {
       return;
     }
 
-    let activationCodes = [];
-    if (type.value === 'game') {
-      activationCodes = codesText.value
-        .split('\n')
-        .map(code => code.trim())
-        .filter(Boolean);
+    const activationCodes = codesText.value
+      .split('\n')
+      .map((code) => code.trim())
+      .filter(Boolean);
 
-      if (activationCodes.length < quantity.value) {
-        alert('You must provide at least as many activation codes as the quantity.');
-        uploading.value = false;
-        return;
-      }
+    // Since we only sell virtual games, codes are required at least for "add".
+    // For edit mode you might have fewer codes left after sales, so we keep it strict only on add.
+    if (!editingId.value && activationCodes.length < quantity.value) {
+      alert('You must provide at least as many activation codes as the quantity.');
+      uploading.value = false;
+      return;
     }
 
     let imageUrl = null;
     if (selectedImage.value) {
       imageUrl = await uploadImage(selectedImage.value);
+    } else if (editingId.value) {
+      // keep existing image if user didn't pick a new one
+      imageUrl = imagePreview.value || null;
     }
 
-    await createProduct(
-      {
-        name: name.value,
-        price: price.value,
-        type: type.value,
-        imageUrl: imageUrl,
-        stock: {
-          total: quantity.value
-        },
-        activationCodes
-      },
-      token
-    );
+    const payload = {
+      name: name.value,
+      price: price.value,
+      type: 'game',
+      imageUrl,
+      stock: { total: quantity.value },
+      activationCodes
+    };
 
-    name.value = '';
-    price.value = '';
-    type.value = 'game';
-    quantity.value = 0;
-    codesText.value = '';
-    clearImage();
+    if (editingId.value) {
+      await updateProduct(editingId.value, payload, token);
+      alert('Product updated successfully!');
+    } else {
+      await createProduct(payload, token);
+      alert('Product added successfully!');
+    }
+
+    resetForm();
 
     await loadProducts();
-    alert('Product added successfully!');
   } catch (error) {
-    alert('Error adding product');
+    alert(editingId.value ? 'Error updating product' : 'Error adding product');
     console.error(error);
   } finally {
     uploading.value = false;
@@ -459,6 +506,28 @@ onMounted(() => {
   background: rgba(249, 250, 251, 0.8);
   border-radius: 0.5rem;
   border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.product-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.35);
 }
 
 .product-info {

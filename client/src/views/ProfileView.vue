@@ -8,6 +8,37 @@
       </p>
     </div>
 
+    <section class="section budget-section">
+      <div class="section-header">
+        <h2>Budget</h2>
+        <p class="section-description">
+          Set your budget. It will be decreased automatically when you purchase games.
+        </p>
+      </div>
+
+      <div class="budget-row">
+        <div class="budget-current">
+          Current budget:
+          <strong>{{ displayBudget }} RON</strong>
+        </div>
+
+        <form class="budget-form" @submit.prevent="saveBudget">
+          <input
+            v-model.number="budgetInput"
+            type="number"
+            min="0"
+            step="0.01"
+            class="budget-input"
+            placeholder="e.g. 500"
+            :disabled="budgetSaving"
+          />
+          <button type="submit" class="btn btn-primary" :disabled="budgetSaving">
+            {{ budgetSaving ? 'Saving...' : 'Save budget' }}
+          </button>
+        </form>
+      </div>
+    </section>
+
     <section class="section">
       <div class="section-header">
         <h2>My Orders</h2>
@@ -80,18 +111,34 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { auth } from '../services/firebase';
-import { getMyOrders } from '../services/api';
+import { getMyOrders, getCurrentUser, updateBudget } from '../services/api';
 import { useUserStore } from '../stores/user';
 import { storeToRefs } from 'pinia';
 
 const loading = ref(true);
 const orders = ref([]);
 const visibleCodes = ref(new Set());
+const budgetInput = ref(0);
+const budgetSaving = ref(false);
 
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
+
+watch(
+  () => user.value?.budget,
+  (b) => {
+    const num = Number(b ?? 0);
+    budgetInput.value = Number.isFinite(num) ? num : 0;
+  },
+  { immediate: true }
+);
+
+const displayBudget = computed(() => {
+  const b = Number(user.value?.budget ?? 0);
+  return Number.isFinite(b) ? b : 0;
+});
 
 const loadOrders = async () => {
   try {
@@ -106,6 +153,32 @@ const loadOrders = async () => {
     console.error('Error loading user orders:', error);
   } finally {
     loading.value = false;
+  }
+};
+
+const saveBudget = async () => {
+  try {
+    if (!auth.currentUser) return;
+
+    const nextBudget = Number(budgetInput.value);
+    if (!Number.isFinite(nextBudget) || nextBudget < 0) {
+      alert('Budget must be a positive number');
+      return;
+    }
+
+    budgetSaving.value = true;
+    const token = await auth.currentUser.getIdToken();
+    const { budget } = await updateBudget(nextBudget, token);
+
+    // Refresh/store user so navbar/admin checks stay consistent.
+    const userData = await getCurrentUser(token);
+    userStore.setUser({ ...userData, budget });
+    alert('Budget updated!');
+  } catch (error) {
+    console.error('Error updating budget:', error);
+    alert('Error updating budget');
+  } finally {
+    budgetSaving.value = false;
   }
 };
 
@@ -180,6 +253,43 @@ onMounted(loadOrders);
   padding: 2rem;
   box-shadow: var(--shadow);
   border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.budget-section {
+  margin-bottom: 1.5rem;
+}
+
+.budget-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.budget-current {
+  color: var(--text);
+}
+
+.budget-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.budget-input {
+  width: 180px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  font-size: 1rem;
+  background: var(--bg);
+}
+
+.budget-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .section-header {

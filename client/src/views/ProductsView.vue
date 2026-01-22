@@ -1,10 +1,25 @@
 <template>
   <div class="container">
-    <div class="page-header">
-      <h1>Products</h1>
-      <p v-if="!user" class="login-prompt">
-        <RouterLink to="/login">Log in</RouterLink> to purchase products
-      </p>
+ 
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <input
+          v-model="searchQuery"
+          type="search"
+          class="search-input"
+          placeholder="Search products..."
+          aria-label="Search products"
+        />
+      </div>
+      <div class="sort-wrap">
+        <label class="sort-label" for="sortPrice">Sort by price</label>
+        <select id="sortPrice" v-model="priceSort" class="sort-select">
+          <option value="none">None</option>
+          <option value="asc">Price: Low → High</option>
+          <option value="desc">Price: High → Low</option>
+        </select>
+      </div>
     </div>
 
     <div v-if="products.length === 0" class="empty-state">
@@ -13,7 +28,7 @@
 
     <div v-else class="products-grid">
       <div
-        v-for="product in products"
+        v-for="product in visibleProducts"
         :key="product.id"
         class="product-card"
       >
@@ -52,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { getProducts, createOrder } from '../services/api';
 import { auth } from '../services/firebase';
@@ -62,8 +77,33 @@ import { storeToRefs } from 'pinia';
 const products = ref([]);
 const loading = ref(false);
 const quantities = reactive({});
+const searchQuery = ref('');
+const priceSort = ref('none'); // 'none' | 'asc' | 'desc'
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
+
+const visibleProducts = computed(() => {
+  const q = (searchQuery.value || '').trim().toLowerCase();
+  let list = Array.isArray(products.value) ? [...products.value] : [];
+
+  if (q) {
+    list = list.filter((p) => String(p?.name ?? '').toLowerCase().includes(q));
+  }
+
+  if (priceSort.value === 'asc' || priceSort.value === 'desc') {
+    const dir = priceSort.value === 'asc' ? 1 : -1;
+    list.sort((a, b) => {
+      const pa = Number(a?.price ?? 0);
+      const pb = Number(b?.price ?? 0);
+      if (Number.isNaN(pa) && Number.isNaN(pb)) return 0;
+      if (Number.isNaN(pa)) return 1;
+      if (Number.isNaN(pb)) return -1;
+      return (pa - pb) * dir;
+    });
+  }
+
+  return list;
+});
 
 const loadProducts = async () => {
   try {
@@ -102,7 +142,7 @@ const orderProduct = async (product) => {
     loading.value = true;
     const token = await auth.currentUser.getIdToken();
 
-    await createOrder(
+    const result = await createOrder(
       {
         products: [
           {
@@ -116,9 +156,16 @@ const orderProduct = async (product) => {
       token
     );
 
+    // Backend returns remainingBudget after purchase; keep UI/store in sync.
+    if (result && typeof result.remainingBudget === 'number') {
+      const current = userStore.user || {};
+      userStore.setUser({ ...current, budget: result.remainingBudget });
+    }
+
     alert('Order placed successfully!');
   } catch (error) {
-    alert('Error placing order');
+    const msg = error?.message || 'Error placing order';
+    alert(msg);
     console.error(error);
   } finally {
     loading.value = false;
@@ -134,6 +181,20 @@ onMounted(loadProducts);
   text-align: center;
 }
 
+.header-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.5rem 2rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  max-width: 720px;
+  width: min(720px, 100%);
+}
+
 .page-header h1 {
   font-size: 2.5rem;
   color: var(--text);
@@ -143,6 +204,7 @@ onMounted(loadProducts);
 .login-prompt {
   color: var(--text-light);
   font-size: 1rem;
+  margin: 0;
 }
 
 .login-prompt a {
@@ -153,6 +215,62 @@ onMounted(loadProducts);
 
 .login-prompt a:hover {
   text-decoration: underline;
+}
+
+.toolbar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 auto 1.5rem;
+  max-width: 980px;
+}
+
+.search-wrap {
+  flex: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  font-size: 1rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12), var(--shadow);
+}
+
+.sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.sort-label {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+.sort-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.95rem;
 }
 
 .empty-state {
@@ -261,6 +379,15 @@ onMounted(loadProducts);
 }
 
 @media (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sort-wrap {
+    justify-content: space-between;
+  }
+
   .products-grid {
     grid-template-columns: 1fr;
   }

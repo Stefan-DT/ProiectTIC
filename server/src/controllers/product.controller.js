@@ -40,26 +40,25 @@ const createProduct = async (req, res, next) => {
     const {
       name,
       price,
-      type,
       category,
       imageUrl,
       stock,
       activationCodes
     } = req.body;
-    if (!name || !price || !type) {
+    if (!name || !price) {
       return res.status(400).json({
-        message: 'name, price and type are required'
+        message: 'name and price are required'
       });
     }
 
     const product = {
       name,
       price,
-      type,
+      type: 'game',
       imageUrl: imageUrl || null,
       category: category || { id: 'cat_general', name: 'General' },
       stock: stock || { total: 0 },
-      activationCodes: type === 'game' ? activationCodes || [] : [],
+      activationCodes: activationCodes || [],
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -91,6 +90,7 @@ const updateProduct = async (req, res, next) => {
 
     await docRef.update({
       ...updates,
+      type: 'game',
       'metadata.updatedAt': new Date().toISOString()
     });
 

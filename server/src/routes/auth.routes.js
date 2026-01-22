@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const authMiddleware = require('../middlewares/auth.middleware');
-const { syncUser } = require('../controllers/auth.controller');
+const { syncUser, updateBudget } = require('../controllers/auth.controller');
 const { db } = require('../../config/firebase');
 
 // user synchronization
@@ -22,5 +22,8 @@ router.get('/me', authMiddleware, async (req, res, next) => {
     next(error);
   }
 });
+
+// update budget
+router.patch('/me/budget', authMiddleware, updateBudget);
 
 module.exports = router;

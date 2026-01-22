@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5001/api';
 
 export const getProducts = async () => {
   const response = await fetch(`${API_BASE_URL}/products`);
@@ -24,8 +24,25 @@ export const getCurrentUser = async (token) => {
   return response.json();
 };
 
+export const updateBudget = async (budget, token) => {
+  const response = await fetch(`${API_BASE_URL}/auth/me/budget`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ budget })
+  });
+
+  if (!response.ok) {
+    throw new Error('Error updating budget');
+  }
+
+  return response.json(); // { budget }
+};
+
 export const createProduct = async (product, token) => {
-  const response = await fetch('http://localhost:5000/api/products', {
+  const response = await fetch(`${API_BASE_URL}/products`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -41,8 +58,25 @@ export const createProduct = async (product, token) => {
   return response.json();
 };
 
+export const updateProduct = async (id, product, token) => {
+  const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(product)
+  });
+
+  if (!response.ok) {
+    throw new Error('Error updating product');
+  }
+
+  return response.json();
+};
+
 export const deleteProduct = async (id, token) => {
-  const response = await fetch(`http://localhost:5000/api/products/${id}`, {
+  const response = await fetch(`${API_BASE_URL}/products/${id}`, {
     method: 'DELETE',
     headers: {
       Authorization: `Bearer ${token}`

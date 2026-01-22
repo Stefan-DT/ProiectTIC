@@ -67,7 +67,7 @@ const register = async () => {
 
     const token = await userCredential.user.getIdToken();
 
-    await fetch('http://localhost:5000/api/auth/sync', {
+    await fetch('http://localhost:5001/api/auth/sync', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`
