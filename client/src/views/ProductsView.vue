@@ -164,8 +164,18 @@ const orderProduct = async (product) => {
 
     alert('Order placed successfully!');
   } catch (error) {
-    const msg = error?.message || 'Error placing order';
-    alert(msg);
+    if (error?.details?.reason === 'insufficient_budget') {
+      const budget = Number(error.details.budget ?? 0);
+      const total = Number(error.details.total ?? 0);
+      const missing = Number(error.details.missing ?? Math.max(0, total - budget));
+
+      alert(
+        `Buget insuficient.\n\nBuget: ${budget} RON\nTotal comandă: ${total} RON\nÎți mai lipsesc: ${missing} RON\n\nPoți modifica bugetul din Profile.`
+      );
+    } else {
+      const msg = error?.message || 'Error placing order';
+      alert(msg);
+    }
     console.error(error);
   } finally {
     loading.value = false;

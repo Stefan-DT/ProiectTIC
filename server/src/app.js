@@ -11,7 +11,6 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Root + health endpoints (useful for hosting checks / opening backend URL in browser)
 app.get('/', (req, res) => {
   res.status(200).json({
     status: 'OK',

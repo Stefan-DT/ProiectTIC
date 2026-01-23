@@ -148,6 +148,29 @@
           >
             <div class="order-header">
               <div class="order-id">#{{ order.id.slice(0, 8) }}</div>
+              <div class="order-status">
+                <span class="status-badge" :class="(order.status || 'pending')">
+                  {{ order.status || 'pending' }}
+                </span>
+                <select
+                  v-model="order.status"
+                  class="status-select"
+                  :disabled="statusSavingId === order.id"
+                >
+                  <option value="pending">pending</option>
+                  <option value="processing">processing</option>
+                  <option value="completed">completed</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  :disabled="statusSavingId === order.id"
+                  @click="saveOrderStatus(order)"
+                >
+                  {{ statusSavingId === order.id ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
             </div>
             <div class="order-details">
               <div class="order-info">
@@ -155,6 +178,9 @@
               </div>
               <div class="order-info">
                 <strong>Date:</strong> {{ new Date(order.createdAt).toLocaleDateString('en-US') }}
+              </div>
+              <div v-if="order.total !== undefined" class="order-info">
+                <strong>Total:</strong> {{ order.total }} RON
               </div>
               <div class="order-products">
                 <strong>Products:</strong>
@@ -174,12 +200,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getProducts, createProduct, updateProduct, deleteProduct, getOrders } from '../services/api';
+import { getProducts, createProduct, updateProduct, deleteProduct, getOrders, updateOrderStatus } from '../services/api';
 import { auth, storage } from '../services/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const products = ref([]);
 const orders = ref([]);
+const statusSavingId = ref(null);
 const editingId = ref(null);
 const name = ref('');
 const price = ref('');
@@ -201,9 +228,28 @@ const loadProducts = async () => {
 const loadOrders = async () => {
   try {
     const token = await auth.currentUser.getIdToken();
-    orders.value = await getOrders(token);
+    const data = await getOrders(token);
+    // newest first
+    orders.value = (Array.isArray(data) ? data : []).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
   } catch (error) {
     console.error('Error loading orders:', error);
+  }
+};
+
+const saveOrderStatus = async (order) => {
+  try {
+    if (!auth.currentUser) return;
+    statusSavingId.value = order.id;
+    const token = await auth.currentUser.getIdToken();
+    await updateOrderStatus(order.id, order.status || 'pending', token);
+    await loadOrders();
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    alert('Error updating order status');
+  } finally {
+    statusSavingId.value = null;
   }
 };
 
@@ -600,6 +646,31 @@ onMounted(() => {
   font-family: monospace;
   font-weight: 600;
   color: var(--text-light);
+}
+
+.order-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.status-select {
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.9rem;
+}
+
+.status-badge.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.processing {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-badge {

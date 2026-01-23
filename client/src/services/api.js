@@ -99,7 +99,17 @@ export const createOrder = async (orderData, token) => {
   });
 
   if (!response.ok) {
-    throw new Error('Error creating order');
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (_) {
+      body = null;
+    }
+
+    const err = new Error(body?.message || 'Error creating order');
+    if (body?.details) err.details = body.details;
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();
@@ -114,6 +124,23 @@ export const getOrders = async (token) => {
 
   if (!response.ok) {
     throw new Error('Error fetching orders');
+  }
+
+  return response.json();
+};
+
+export const updateOrderStatus = async (orderId, status, token) => {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ status })
+  });
+
+  if (!response.ok) {
+    throw new Error('Error updating order status');
   }
 
   return response.json();

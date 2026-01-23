@@ -7,7 +7,7 @@
  * Notes:
  * - Requires Firebase Admin credentials via `server/src/serviceAccount.json`
  *   (already used by `server/config/firebase.js`).
- * - Images are random URLs (no download) via picsum.photos.
+ * - Images are gaming-related placeholder URLs (no download) via loremflickr.
  */
 const { faker } = require('@faker-js/faker');
 const { db } = require('../../config/firebase');
@@ -65,6 +65,14 @@ const GAME_TITLES = [
   'The Legend of Zelda: Tears of the Kingdom'
 ];
 
+const GAME_IMAGE_TAGS = [
+  'gaming',
+  'video-game',
+  'esports',
+  'pc-gaming',
+  'game-controller'
+];
+
 function parseArgs(argv) {
   const out = {
     count: 50,
@@ -91,40 +99,82 @@ function chunk(arr, size) {
   return out;
 }
 
-function makeImageUrl(seed) {
-  // stable “random” image per product based on seed string
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/600`;
+function hashToInt(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+function makeImageUrl(title, idx) {
+  // Deterministic "gaming" image per title, to avoid looking random/off-topic.
+  // loremflickr supports lock= for stable results.
+  const lock = (hashToInt(title) + idx + 1) % 10000;
+  const tag = GAME_IMAGE_TAGS[lock % GAME_IMAGE_TAGS.length];
+  return `https://loremflickr.com/800/600/${tag}?lock=${lock}`;
+}
+
+function pickUniqueGameTitles(count) {
+  if (count > GAME_TITLES.length) {
+    throw new Error(
+      `Not enough unique game titles. Requested ${count}, but only ${GAME_TITLES.length} available.`
+    );
+  }
+
+  const shuffled = [...GAME_TITLES];
+  // Fisher–Yates shuffle
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled.slice(0, count);
 }
 
 function buildCategories(count) {
-  const categories = [];
-  for (let i = 0; i < count; i++) {
-    const name = faker.commerce.department();
-    categories.push({
+  const GENRES = [
+    'Action',
+    'Adventure',
+    'RPG',
+    'Shooter',
+    'Strategy',
+    'Simulation',
+    'Racing',
+    'Sports',
+    'Indie',
+    'Open World',
+    'Horror',
+    'Multiplayer'
+  ];
+
+  const now = new Date().toISOString();
+  const unique = GENRES.slice(0, Math.min(count, GENRES.length)).map((name) => ({
+    id: faker.string.uuid(),
+    name,
+    features: Array.from({ length: 3 }, () => faker.commerce.productAdjective()),
+    createdAt: now
+  }));
+
+  // If caller wants more than we have in GENRES, fill the rest with reasonable labels.
+  while (unique.length < count) {
+    const name = `Genre ${unique.length + 1}`;
+    unique.push({
       id: faker.string.uuid(),
       name,
       features: Array.from({ length: 3 }, () => faker.commerce.productAdjective()),
-      createdAt: new Date().toISOString()
+      createdAt: now
     });
   }
-  return categories;
+
+  return unique;
 }
 
-function buildProduct(categories) {
+function buildProduct(categories, title, idx) {
   const category = faker.helpers.arrayElement(categories);
   const type = 'game';
 
-  // Keep names aligned with your theme.
-  // Only virtual games (no peripherals).
-  const baseName = faker.helpers.arrayElement(GAME_TITLES);
-
-  // Add a small variant so repeated items still look distinct if count > list size.
-  const variant =
-    faker.number.int({ min: 0, max: 4 }) === 0
-      ? ` ${faker.helpers.arrayElement(['Edition', 'Bundle', 'Deluxe', 'Ultimate'])}`
-      : '';
-
-  const productName = `${baseName}${variant}`.trim();
+  const productName = String(title).trim();
   const slug = faker.helpers.slugify(productName).toLowerCase();
   const stockTotal = faker.number.int({ min: 0, max: 100 });
 
@@ -151,7 +201,7 @@ function buildProduct(categories) {
       name: category.name,
       features: category.features
     },
-    imageUrl: makeImageUrl(slug || faker.string.uuid()),
+    imageUrl: makeImageUrl(productName, idx),
     stock: {
       total: stockTotal,
       warehouse: faker.location.city()
@@ -206,13 +256,15 @@ async function seed({ count, categories: categoryCount, clear }) {
   }
 
   // Write products
-  const products = Array.from({ length: count }, () => buildProduct(categories));
+  const titles = pickUniqueGameTitles(count);
+  const products = titles.map((title, idx) => buildProduct(categories, title, idx));
   const productBatches = chunk(products, 450);
 
   for (const group of productBatches) {
     const batch = db.batch();
     group.forEach((p) => {
-      const ref = db.collection('products').doc(); // auto id
+      // Use slug as doc id to keep uniqueness stable (and avoid accidental duplicates).
+      const ref = db.collection('products').doc(p.slug);
       batch.set(ref, p);
     });
     await batch.commit();

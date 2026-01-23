@@ -1,5 +1,7 @@
 const { db } = require('../../config/firebase');
 
+const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'completed', 'cancelled'];
+
 // USER - create order
 const createOrder = async (req, res, next) => {
   try {
@@ -106,6 +108,12 @@ const createOrder = async (req, res, next) => {
       if (currentBudget < total) {
         const error = new Error('Insufficient budget');
         error.statusCode = 400;
+        error.details = {
+          reason: 'insufficient_budget',
+          budget: currentBudget,
+          total: Number(total.toFixed(2)),
+          missing: Number((total - currentBudget).toFixed(2))
+        };
         throw error;
       }
 
@@ -177,8 +185,45 @@ const getUserOrders = async (req, res, next) => {
   }
 };
 
+// ADMIN - update order status
+const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: 'Order id is required' });
+    }
+
+    if (!ALLOWED_ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status. Allowed: ${ALLOWED_ORDER_STATUSES.join(', ')}`
+      });
+    }
+
+    const orderRef = db.collection('orders').doc(id);
+    const doc = await orderRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const now = new Date().toISOString();
+
+    await orderRef.update({
+      status,
+      updatedAt: now
+    });
+
+    res.status(200).json({ message: 'Order status updated', status, updatedAt: now });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createOrder,
   getAllOrders,
-  getUserOrders
+  getUserOrders,
+  updateOrderStatus
 };
