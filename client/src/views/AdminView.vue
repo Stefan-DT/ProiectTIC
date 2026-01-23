@@ -44,6 +44,14 @@
                   required
                 />
               </div>
+              <div class="form-group">
+                <label>Genre</label>
+                <select v-model="genre">
+                  <option v-for="g in GENRES" :key="g" :value="g">
+                    {{ g }}
+                  </option>
+                </select>
+              </div>
             </div>
             <div class="form-group">
               <label>Activation Codes (one per line)</label>
@@ -204,6 +212,21 @@ import { getProducts, createProduct, updateProduct, deleteProduct, getOrders, up
 import { auth, storage } from '../services/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+const GENRES = [
+  'Action',
+  'Adventure',
+  'RPG',
+  'Shooter',
+  'Strategy',
+  'Simulation',
+  'Racing',
+  'Sports',
+  'Indie',
+  'Open World',
+  'Horror',
+  'Multiplayer'
+];
+
 const products = ref([]);
 const orders = ref([]);
 const statusSavingId = ref(null);
@@ -211,6 +234,7 @@ const editingId = ref(null);
 const name = ref('');
 const price = ref('');
 const quantity = ref(0);
+const genre = ref(GENRES[0]);
 const codesText = ref('');
 const uploading = ref(false);
 const selectedImage = ref(null);
@@ -318,8 +342,8 @@ const resetForm = () => {
   editingId.value = null;
   name.value = '';
   price.value = '';
-  type.value = 'game';
   quantity.value = 0;
+  genre.value = GENRES[0];
   codesText.value = '';
   clearImage();
 };
@@ -329,6 +353,7 @@ const startEdit = (product) => {
   name.value = product.name ?? '';
   price.value = product.price ?? '';
   quantity.value = product.stock?.total ?? 0;
+  genre.value = product.category?.name || GENRES[0];
 
   const codes = Array.isArray(product.activationCodes)
     ? product.activationCodes
@@ -383,6 +408,12 @@ const submitProduct = async () => {
       name: name.value,
       price: price.value,
       type: 'game',
+      category: {
+        id: `genre_${String(genre.value || 'general')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')}`,
+        name: genre.value || 'General'
+      },
       imageUrl,
       stock: { total: quantity.value },
       activationCodes

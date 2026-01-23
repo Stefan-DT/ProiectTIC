@@ -12,6 +12,13 @@
           aria-label="Search products"
         />
       </div>
+      <div class="genre-wrap">
+        <label class="sort-label" for="genre">Genre</label>
+        <select id="genre" v-model="selectedGenre" class="sort-select">
+          <option value="all">All</option>
+          <option v-for="g in genres" :key="g" :value="g">{{ g }}</option>
+        </select>
+      </div>
       <div class="sort-wrap">
         <label class="sort-label" for="sortPrice">Sort by price</label>
         <select id="sortPrice" v-model="priceSort" class="sort-select">
@@ -19,6 +26,36 @@
           <option value="asc">Price: Low → High</option>
           <option value="desc">Price: High → Low</option>
         </select>
+      </div>
+    </div>
+
+    <div class="range-bar" v-if="priceBounds.max > priceBounds.min">
+      <div class="range-header">
+        <span class="range-title">Price range</span>
+        <span class="range-values">{{ priceMin }} RON – {{ priceMax }} RON</span>
+      </div>
+      <div class="range-slider">
+        <div class="range-track">
+          <div class="range-track-fill" :style="rangeFillStyle" />
+        </div>
+        <input
+          v-model.number="priceMin"
+          type="range"
+          :min="priceBounds.min"
+          :max="priceBounds.max"
+          step="1"
+          class="range-input range-input--min"
+          aria-label="Minimum price"
+        />
+        <input
+          v-model.number="priceMax"
+          type="range"
+          :min="priceBounds.min"
+          :max="priceBounds.max"
+          step="1"
+          class="range-input range-input--max"
+          aria-label="Maximum price"
+        />
       </div>
     </div>
 
@@ -67,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { getProducts, createOrder } from '../services/api';
 import { auth } from '../services/firebase';
@@ -79,8 +116,66 @@ const loading = ref(false);
 const quantities = reactive({});
 const searchQuery = ref('');
 const priceSort = ref('none'); // 'none' | 'asc' | 'desc'
+const selectedGenre = ref('all');
+const priceMin = ref(0);
+const priceMax = ref(0);
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
+
+const genres = computed(() => {
+  const set = new Set();
+  (Array.isArray(products.value) ? products.value : []).forEach((p) => {
+    const g = p?.category?.name;
+    if (g) set.add(String(g));
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+});
+
+const priceBounds = computed(() => {
+  const vals = (Array.isArray(products.value) ? products.value : [])
+    .map((p) => Number(p?.price))
+    .filter((n) => Number.isFinite(n));
+  if (!vals.length) return { min: 0, max: 0 };
+  return {
+    min: Math.floor(Math.min(...vals)),
+    max: Math.ceil(Math.max(...vals))
+  };
+});
+
+const rangeFillStyle = computed(() => {
+  const min = priceBounds.value.min;
+  const max = priceBounds.value.max;
+  const span = Math.max(1, max - min);
+
+  const leftPct = ((Number(priceMin.value) - min) / span) * 100;
+  const rightPct = ((Number(priceMax.value) - min) / span) * 100;
+
+  const l = Math.min(100, Math.max(0, leftPct));
+  const r = Math.min(100, Math.max(0, rightPct));
+  const start = Math.min(l, r);
+  const end = Math.max(l, r);
+
+  return {
+    left: `${start}%`,
+    width: `${end - start}%`
+  };
+});
+
+watch(
+  () => priceBounds.value,
+  (b) => {
+    priceMin.value = b.min;
+    priceMax.value = b.max;
+  },
+  { immediate: true }
+);
+
+watch(priceMin, (v) => {
+  if (v > priceMax.value) priceMax.value = v;
+});
+watch(priceMax, (v) => {
+  if (v < priceMin.value) priceMin.value = v;
+});
 
 const visibleProducts = computed(() => {
   const q = (searchQuery.value || '').trim().toLowerCase();
@@ -88,6 +183,19 @@ const visibleProducts = computed(() => {
 
   if (q) {
     list = list.filter((p) => String(p?.name ?? '').toLowerCase().includes(q));
+  }
+
+  if (selectedGenre.value !== 'all') {
+    list = list.filter((p) => String(p?.category?.name ?? '') === selectedGenre.value);
+  }
+
+  const min = Number(priceMin.value);
+  const max = Number(priceMax.value);
+  if (Number.isFinite(min) && Number.isFinite(max) && max >= min) {
+    list = list.filter((p) => {
+      const price = Number(p?.price ?? 0);
+      return Number.isFinite(price) && price >= min && price <= max;
+    });
   }
 
   if (priceSort.value === 'asc' || priceSort.value === 'desc') {
@@ -98,7 +206,9 @@ const visibleProducts = computed(() => {
       if (Number.isNaN(pa) && Number.isNaN(pb)) return 0;
       if (Number.isNaN(pa)) return 1;
       if (Number.isNaN(pb)) return -1;
-      return (pa - pb) * dir;
+      const primary = (pa - pb) * dir;
+      if (primary !== 0) return primary;
+      return String(a?.name ?? '').localeCompare(String(b?.name ?? ''));
     });
   }
 
@@ -238,6 +348,118 @@ onMounted(loadProducts);
 
 .search-wrap {
   flex: 1;
+}
+
+.genre-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.range-bar {
+  max-width: 980px;
+  margin: 0 auto 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.range-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.range-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.range-values {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.range-slider {
+  position: relative;
+  height: 34px;
+}
+
+.range-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.range-track-fill {
+  position: absolute;
+  top: 0;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.range-input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none; /* only thumbs are interactive */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range-input::-webkit-slider-runnable-track {
+  height: 8px;
+  background: transparent;
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  height: 20px;
+  width: 20px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+  margin-top: -6px;
+}
+
+.range-input::-webkit-slider-thumb:active {
+  transform: scale(1.06);
+}
+
+/* Firefox */
+.range-input::-moz-range-track {
+  height: 8px;
+  background: transparent;
+}
+
+.range-input::-moz-range-thumb {
+  pointer-events: auto;
+  height: 20px;
+  width: 20px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
 }
 
 .search-input {
