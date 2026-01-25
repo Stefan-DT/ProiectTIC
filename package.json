@@ -1,0 +1,15 @@
+{
+  "name": "proiecttic",
+  "private": true,
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "start": "npm --workspace server start",
+    "dev": "npm --workspace server run dev",
+    "seed": "npm --workspace server run seed"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
