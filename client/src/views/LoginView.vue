@@ -56,7 +56,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/user';
-import { getCurrentUser } from '../services/api';
+import { getCurrentUser, syncUser } from '../services/api';
 
 const email = ref('');
 const password = ref('');
@@ -78,12 +78,7 @@ const login = async () => {
 
     const token = await userCredential.user.getIdToken();
 
-    await fetch('http://localhost:5001/api/auth/sync', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+    await syncUser(token);
 
     const userData = await getCurrentUser(token);
     userStore.setUser(userData);

@@ -76,6 +76,19 @@
           <span>No image</span>
         </div>
         <h3 class="product-name">{{ product.name }}</h3>
+        <RouterLink
+          class="product-rating rating-link"
+          :to="`/products/${product.id}/reviews`"
+          aria-label="Open reviews"
+        >
+          <span v-if="ratingCount(product) > 0" class="stars" aria-hidden="true">
+            {{ stars(ratingAvg(product)) }}
+          </span>
+          <span v-if="ratingCount(product) > 0" class="rating-text">
+            {{ ratingAvg(product).toFixed(2) }} ({{ ratingCount(product) }})
+          </span>
+          <span v-else class="rating-text">No ratings yet</span>
+        </RouterLink>
         <div class="product-price">{{ product.price }} RON</div>
         <div v-if="product.stock && product.stock.total !== undefined" class="product-stock">
           In stock: <strong>{{ product.stock.total }}</strong>
@@ -105,7 +118,7 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed, watch } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { getProducts, createOrder } from '../services/api';
 import { auth } from '../services/firebase';
 import { useUserStore } from '../stores/user';
@@ -121,6 +134,22 @@ const priceMin = ref(0);
 const priceMax = ref(0);
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
+const router = useRouter();
+
+const ratingAvg = (product) => {
+  const avg = Number(product?.ratingSummary?.avg ?? 0);
+  return Number.isFinite(avg) ? avg : 0;
+};
+
+const ratingCount = (product) => {
+  const count = Number(product?.ratingSummary?.count ?? 0);
+  return Number.isFinite(count) ? count : 0;
+};
+
+const stars = (avg) => {
+  const r = Math.max(0, Math.min(5, Math.round(Number(avg || 0))));
+  return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r);
+};
 
 const genres = computed(() => {
   const set = new Set();
@@ -272,16 +301,21 @@ const orderProduct = async (product) => {
       userStore.setUser({ ...current, budget: result.remainingBudget });
     }
 
-    alert('Order placed successfully!');
+    const goToProfile = confirm(
+      'Order placed successfully! \n Do you want to proceed to profile?'
+    );
+    if (goToProfile) {
+      router.push('/profile');
+    }
   } catch (error) {
     if (error?.details?.reason === 'insufficient_budget') {
       const budget = Number(error.details.budget ?? 0);
       const total = Number(error.details.total ?? 0);
       const missing = Number(error.details.missing ?? Math.max(0, total - budget));
 
-      alert(
-        `Buget insuficient.\n\nBuget: ${budget} RON\nTotal comandă: ${total} RON\nÎți mai lipsesc: ${missing} RON\n\nPoți modifica bugetul din Profile.`
-      );
+     alert(
+  `Insufficient budget.\n\nBudget: ${budget} RON\nOrder total: ${total} RON\nYou are missing: ${missing} RON\n\nYou can update your budget in your Profile.`
+);
     } else {
       const msg = error?.message || 'Error placing order';
       alert(msg);
@@ -570,6 +604,36 @@ onMounted(loadProducts);
   font-weight: 600;
   color: var(--text);
   margin-bottom: 0.5rem;
+}
+
+.product-rating {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.product-rating .stars {
+  color: #f59e0b;
+  letter-spacing: 1px;
+  font-size: 0.95rem;
+}
+
+.product-rating .rating-text {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.rating-link {
+  text-decoration: none;
+}
+
+.rating-link:hover .rating-text {
+  text-decoration: underline;
+}
+
+.rating-link:hover .stars {
+  filter: brightness(1.05);
 }
 
 .product-price {

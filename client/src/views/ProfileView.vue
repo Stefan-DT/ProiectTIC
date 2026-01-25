@@ -73,7 +73,17 @@
           <ul class="order-products">
             <li v-for="(item, index) in order.products" :key="index">
               <div class="product-main">
-                <span class="product-name">{{ item.name }}</span>
+                <div class="product-left">
+                  <span class="product-name">{{ item.name }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-xs"
+                    :disabled="reviewSaving"
+                    @click="openFeedback(item)"
+                  >
+                    Submit feedback
+                  </button>
+                </div>
                 <span class="product-meta">
                   {{ item.priceAtPurchase }} RON × {{ item.quantity }}
                 </span>
@@ -107,21 +117,79 @@
         </div>
       </div>
     </section>
+
+    <div v-if="feedbackOpen" class="modal-overlay" @click.self="closeFeedback">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-title">Submit feedback</div>
+          <button type="button" class="modal-close" @click="closeFeedback" aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div class="modal-subtitle">
+          Game: <strong>{{ feedbackProductName }}</strong>
+        </div>
+
+        <div class="modal-row">
+          <div class="form-group">
+            <label class="form-label">Rating</label>
+            <select class="form-control" v-model.number="reviewRating" :disabled="reviewSaving">
+              <option :value="5">5</option>
+              <option :value="4">4</option>
+              <option :value="3">3</option>
+              <option :value="2">2</option>
+              <option :value="1">1</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comment</label>
+          <textarea
+            class="form-control"
+            rows="4"
+            v-model="reviewComment"
+            placeholder="Write your feedback..."
+            :disabled="reviewSaving"
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" :disabled="reviewSaving" @click="closeFeedback">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" :disabled="reviewSaving" @click="submitReview">
+            {{ reviewSaving ? 'Submitting...' : 'Submit' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { auth } from '../services/firebase';
-import { getMyOrders, getCurrentUser, updateBudget } from '../services/api';
+import { getMyOrders, getCurrentUser, updateBudget, upsertMyProductReview, getMyProductReview } from '../services/api';
 import { useUserStore } from '../stores/user';
 import { storeToRefs } from 'pinia';
+import { useRouter } from 'vue-router';
 
 const loading = ref(true);
 const orders = ref([]);
 const visibleCodes = ref(new Set());
 const budgetInput = ref(0);
 const budgetSaving = ref(false);
+const router = useRouter();
+
+// Reviews (opened from orders list)
+const feedbackOpen = ref(false);
+const feedbackProductId = ref('');
+const feedbackProductName = ref('');
+const reviewRating = ref(5);
+const reviewComment = ref('');
+const reviewSaving = ref(false);
 
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
@@ -153,6 +221,67 @@ const loadOrders = async () => {
     console.error('Error loading user orders:', error);
   } finally {
     loading.value = false;
+  }
+};
+
+const openFeedback = async (item) => {
+  try {
+    if (!auth.currentUser) return;
+    feedbackProductId.value = String(item?.productId ?? '');
+    feedbackProductName.value = String(item?.name ?? 'Game');
+    reviewRating.value = 5;
+    reviewComment.value = '';
+    feedbackOpen.value = true;
+
+    // Prefill if user already has a review
+    const token = await auth.currentUser.getIdToken();
+    const existing = await getMyProductReview(feedbackProductId.value, token);
+    if (existing) {
+      reviewRating.value = Number(existing.rating ?? 5);
+      reviewComment.value = String(existing.comment ?? '');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const closeFeedback = () => {
+  if (reviewSaving.value) return;
+  feedbackOpen.value = false;
+};
+
+const submitReview = async () => {
+  try {
+    if (!auth.currentUser) return;
+    if (!feedbackProductId.value) return;
+
+    const rating = Number(reviewRating.value);
+    const comment = String(reviewComment.value || '').trim();
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      alert('Rating must be between 1 and 5.');
+      return;
+    }
+    if (comment.length < 3) {
+      alert('Please write at least 3 characters.');
+      return;
+    }
+
+    reviewSaving.value = true;
+    const token = await auth.currentUser.getIdToken();
+    await upsertMyProductReview(feedbackProductId.value, { rating, comment }, token);
+
+    const go = confirm('Feedback submitted!\n\nDo you want to open the reviews page for this game?');
+    if (go) {
+      router.push(`/products/${feedbackProductId.value}/reviews`);
+    } else {
+      reviewComment.value = '';
+    }
+    feedbackOpen.value = false;
+  } catch (e) {
+    console.error(e);
+    alert(e?.message || 'Error submitting review');
+  } finally {
+    reviewSaving.value = false;
   }
 };
 
@@ -290,6 +419,118 @@ onMounted(loadOrders);
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.form-control {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  font-size: 1rem;
+  background: var(--bg);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* Submit feedback button in orders */
+.product-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.btn-xs {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  border-radius: 0.5rem;
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.25);
+  color: var(--text);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.modal {
+  width: min(640px, 100%);
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 1rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+  padding: 1.25rem;
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.modal-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--text-light);
+}
+
+.modal-subtitle {
+  color: var(--text-light);
+  margin-bottom: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
 
 .section-header {

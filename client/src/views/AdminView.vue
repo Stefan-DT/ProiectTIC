@@ -54,14 +54,26 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Activation Codes (one per line)</label>
-              <textarea
-                v-model="codesText"
-                rows="4"
-                placeholder="CODE-1234-ABCD&#10;CODE-5678-EFGH"
-              />
+              <label>Activation Codes</label>
+              <div v-if="codeFieldsCount > 0" class="codes-grid">
+                <div
+                  v-for="idx in codeFieldsCount"
+                  :key="idx"
+                  class="code-row"
+                >
+                  <input
+                    v-model="activationCodeInputs[idx - 1]"
+                    :placeholder="`Code #${idx}`"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+              <small v-else class="help-text">
+                Set Quantity above to generate code fields.
+              </small>
               <small class="help-text">
-                You must provide at least as many codes as the quantity set above.
+                Provide at least as many unique codes as the quantity set above.
               </small>
             </div>
             <div class="form-group">
@@ -207,7 +219,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { getProducts, createProduct, updateProduct, deleteProduct, getOrders, updateOrderStatus } from '../services/api';
 import { auth, storage } from '../services/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -235,11 +247,40 @@ const name = ref('');
 const price = ref('');
 const quantity = ref(0);
 const genre = ref(GENRES[0]);
-const codesText = ref('');
+const activationCodeInputs = ref([]);
 const uploading = ref(false);
 const selectedImage = ref(null);
 const imagePreview = ref(null);
 const fileInput = ref(null);
+
+const codeFieldsCount = computed(() => {
+  const qty = Math.max(0, Number(quantity.value) || 0);
+  if (editingId.value) {
+    return Math.max(qty, activationCodeInputs.value.length);
+  }
+  return qty;
+});
+
+const syncActivationCodeInputs = () => {
+  const desired = codeFieldsCount.value;
+  const current = Array.isArray(activationCodeInputs.value)
+    ? activationCodeInputs.value
+    : [];
+
+  if (!editingId.value) {
+    // Add mode: keep it exactly equal to Quantity.
+    activationCodeInputs.value = current.slice(0, desired);
+  } else {
+    // Edit mode: never shrink automatically (avoid accidental data loss).
+    activationCodeInputs.value = current.slice();
+  }
+
+  while (activationCodeInputs.value.length < desired) {
+    activationCodeInputs.value.push('');
+  }
+};
+
+watch([quantity, editingId], syncActivationCodeInputs, { immediate: true });
 
 const loadProducts = async () => {
   try {
@@ -344,7 +385,7 @@ const resetForm = () => {
   price.value = '';
   quantity.value = 0;
   genre.value = GENRES[0];
-  codesText.value = '';
+  activationCodeInputs.value = [];
   clearImage();
 };
 
@@ -358,7 +399,8 @@ const startEdit = (product) => {
   const codes = Array.isArray(product.activationCodes)
     ? product.activationCodes
     : [];
-  codesText.value = codes.join('\n');
+  activationCodeInputs.value = codes.slice();
+  syncActivationCodeInputs();
 
   // show existing image (optional); user can upload a new one to replace
   imagePreview.value = product.imageUrl || null;
@@ -383,14 +425,26 @@ const submitProduct = async () => {
       return;
     }
 
-    const activationCodes = codesText.value
-      .split('\n')
-      .map((code) => code.trim())
-      .filter(Boolean);
+    const qty = Math.max(0, Number(quantity.value) || 0);
+    const cleaned = (Array.isArray(activationCodeInputs.value) ? activationCodeInputs.value : [])
+      .map((code) => String(code ?? '').trim());
 
-    // Since we only sell virtual games, codes are required at least for "add".
-    // For edit mode you might have fewer codes left after sales, so we keep it strict only on add.
-    if (!editingId.value && activationCodes.length < quantity.value) {
+    const requiredCodes = cleaned.slice(0, qty);
+    if (requiredCodes.some((c) => !c)) {
+      alert('Please fill in all activation code fields for the selected quantity.');
+      uploading.value = false;
+      return;
+    }
+
+    const activationCodes = cleaned.filter(Boolean);
+    const uniqueCount = new Set(activationCodes).size;
+    if (uniqueCount !== activationCodes.length) {
+      alert('Activation codes must be unique (no duplicates).');
+      uploading.value = false;
+      return;
+    }
+
+    if (activationCodes.length < qty) {
       alert('You must provide at least as many activation codes as the quantity.');
       uploading.value = false;
       return;
@@ -554,6 +608,22 @@ onMounted(() => {
   font-size: 1rem;
   background: var(--bg-card);
   transition: all 0.2s;
+}
+
+.codes-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  max-height: 260px;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.code-row input {
+  width: 100%;
 }
 
 .form-group input:focus,

@@ -1,10 +1,79 @@
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+
+export const syncUser = async (token) => {
+  const response = await fetch(`${API_BASE_URL}/auth/sync`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Error syncing user');
+  }
+
+  return response.json();
+};
 
 export const getProducts = async () => {
   const response = await fetch(`${API_BASE_URL}/products`);
 
   if (!response.ok) {
     throw new Error('Error fetching products');
+  }
+
+  return response.json();
+};
+
+export const getProduct = async (productId) => {
+  const response = await fetch(`${API_BASE_URL}/products/${productId}`);
+  if (!response.ok) {
+    throw new Error('Error fetching product');
+  }
+  return response.json();
+};
+
+export const getProductReviews = async (productId) => {
+  const response = await fetch(`${API_BASE_URL}/products/${productId}/reviews`);
+  if (!response.ok) {
+    throw new Error('Error fetching reviews');
+  }
+  return response.json();
+};
+
+export const getMyProductReview = async (productId, token) => {
+  const response = await fetch(`${API_BASE_URL}/products/${productId}/reviews/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    throw new Error('Error fetching your review');
+  }
+
+  return response.json();
+};
+
+export const upsertMyProductReview = async (productId, { rating, comment }, token) => {
+  const response = await fetch(`${API_BASE_URL}/products/${productId}/reviews/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ rating, comment })
+  });
+
+  if (!response.ok) {
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (_) {
+      body = null;
+    }
+    throw new Error(body?.message || 'Error submitting review');
   }
 
   return response.json();
@@ -38,7 +107,7 @@ export const updateBudget = async (budget, token) => {
     throw new Error('Error updating budget');
   }
 
-  return response.json(); // { budget }
+  return response.json(); 
 };
 
 export const createProduct = async (product, token) => {
